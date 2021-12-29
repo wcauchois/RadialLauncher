@@ -5,15 +5,15 @@ import android.animation.ValueAnimator
 import android.graphics.*
 import android.graphics.drawable.Drawable
 import android.util.Log
-import kotlin.math.cos
-import kotlin.math.sin
+import android.view.MotionEvent
+import kotlin.math.*
 
 class RadialMenu(
     rawCenter: PointF,
     val pointerStartPosition: PointF,
     val viewBounds: RectF,
     val items: List<RadialMenu.Item>
-) : ValueAnimator.AnimatorUpdateListener {
+) {
     companion object {
         val TAG = "RadialMenu"
 
@@ -25,6 +25,7 @@ class RadialMenu(
         val DEADZONE_RADIUS = 150F
 
         private val ICON_RADIUS_PROPERTY_NAME = "icon_radius"
+        private val ICON_ALPHA_PROPERTY_NAME = "icon_alpha"
     }
 
     val center = run {
@@ -44,21 +45,21 @@ class RadialMenu(
                 ICON_RADIUS_PROPERTY_NAME,
                 ICON_START_DISTANCE_FROM_CENTER,
                 ICON_DISTANCE_FROM_CENTER
+            ),
+            PropertyValuesHolder.ofFloat(
+                ICON_ALPHA_PROPERTY_NAME,
+                0.5F,
+                1.0F
             )
         )
-        duration = 500
-        addUpdateListener(this@RadialMenu)
+        duration = 250
         start()
     }
 
     private var listener: Listener? = null
-
-    override fun onAnimationUpdate(animator: ValueAnimator?) {
-        listener?.onUpdate()
-    }
+    private var pointerDelta: PointF = PointF()
 
     interface Listener {
-        fun onUpdate() {}
         fun onSelect(index: Int) {}
         fun onRemove() {}
     }
@@ -86,7 +87,7 @@ class RadialMenu(
         color = Color.WHITE
     }
 
-    private fun drawPieSlices(canvas: Canvas, activeIndex: Int?) {
+    private fun drawPieSlices(canvas: Canvas) {
         canvas.save()
 
         val numItems = items.size
@@ -108,6 +109,7 @@ class RadialMenu(
         }
         canvas.clipOutPath(clipPath)
 
+        val activeIndex = this.activeIndex
         for (i in 0 until numItems) {
             val halfRadius = MENU_TOTAL_RADIUS
             val active = activeIndex == i
@@ -126,11 +128,13 @@ class RadialMenu(
     private fun drawIcons(canvas: Canvas) {
         val numItems = items.size
         val currentRadius = iconAnimator.getAnimatedValue(ICON_RADIUS_PROPERTY_NAME) as Float
+        val currentAlpha = iconAnimator.getAnimatedValue(ICON_ALPHA_PROPERTY_NAME) as Float
         val halfSize = ICON_SIZE / 2F
         for ((index, item) in items.withIndex()) {
             val angle = (index / numItems.toFloat()) * Math.PI * 2
             val destX = cos(angle) * currentRadius
             val destY = sin(angle) * currentRadius
+            item.drawable.alpha = (currentAlpha * 255).toInt()
             item.drawable.setBounds(
                 (destX - halfSize).toInt(), (destY - halfSize).toInt(),
                 (destX + halfSize).toInt(), (destY + halfSize).toInt()
@@ -139,13 +143,46 @@ class RadialMenu(
         }
     }
 
+    private val activeIndex: Int?
+        get() {
+            val distanceFromCenter = if (pointerDelta.x == 0F && pointerDelta.y == 0F) 0F else sqrt(
+                pointerDelta.x * pointerDelta.x +
+                        pointerDelta.y * pointerDelta.y
+            )
+            if (distanceFromCenter < DEADZONE_RADIUS) {
+                return null
+            }
+            var userAngle = atan2(pointerDelta.y.toDouble(), pointerDelta.x.toDouble())
+            val numItems = items.size
+            val sliceWidthRadians = Math.PI * 2 / numItems
+            if (userAngle < 0) {
+                userAngle += Math.PI * 2
+            }
+            var index = (userAngle / sliceWidthRadians).roundToInt()
+            if (index == numItems) {
+                index = 0
+            }
+            return index
+        }
+
+
     fun draw(canvas: Canvas) {
         canvas.save()
         canvas.translate(this.center.x, this.center.y)
 
-//        drawPieSlices(canvas, null)
+
+        drawPieSlices(canvas)
         drawIcons(canvas)
 
         canvas.restore()
+    }
+
+    fun onTouchEvent(event: MotionEvent) {
+        if (event.action == MotionEvent.ACTION_MOVE) {
+            pointerDelta = PointF(
+                event.x - pointerStartPosition.x,
+                event.y - pointerStartPosition.y
+            )
+        }
     }
 }

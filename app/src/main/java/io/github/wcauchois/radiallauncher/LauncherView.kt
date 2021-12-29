@@ -10,8 +10,11 @@ import android.graphics.*
 import android.graphics.drawable.Drawable
 import android.util.Log
 import android.view.MotionEvent
+import android.view.SurfaceHolder
 import android.view.SurfaceView
 import android.view.View
+import java.util.*
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -20,32 +23,15 @@ abstract class LauncherViewState(val view: LauncherView) {
     open fun exit() {}
 }
 
-class LauncherView(context: Context) : View(context), ValueAnimator.AnimatorUpdateListener {
+class LauncherView(context: Context) : SurfaceView(context), SurfaceHolder.Callback {
     companion object {
         val TAG = "LauncherView"
-
-        val RADIUS_PROPERTY_NAME = "radius"
     }
 
-//    init {
-//        setZOrderOnTop(true)
-//        holder.setFormat(PixelFormat.TRANSPARENT)
-//    }
-
-    private val radiusAnimator = ValueAnimator().apply {
-        setValues(
-            PropertyValuesHolder.ofFloat(
-                RADIUS_PROPERTY_NAME,
-                275f,
-                275f
-            )
-        )
-        duration = 500
-        addUpdateListener(this@LauncherView)
-    }
-
-    override fun onAnimationUpdate(animator: ValueAnimator?) {
-        invalidate()
+    init {
+        setZOrderOnTop(true)
+        holder.setFormat(PixelFormat.TRANSPARENT)
+        holder.addCallback(this)
     }
 
     init {
@@ -63,12 +49,6 @@ class LauncherView(context: Context) : View(context), ValueAnimator.AnimatorUpda
         return resolveInfo?.loadIcon(pm)
     }
 
-    private fun getChromeIcon() =
-        getActivityIcon("com.android.chrome")
-
-    private val chromeIcon = getChromeIcon()
-
-    private var pointerPosition = PointF()
     private val menus = mutableListOf<RadialMenu>()
     private var viewBounds = RectF()
 
@@ -76,10 +56,15 @@ class LauncherView(context: Context) : View(context), ValueAnimator.AnimatorUpda
         viewBounds = RectF(0F, 0F, w.toFloat(), h.toFloat())
     }
 
-    override fun onDraw(canvas: Canvas) {
-        for (menu in menus) {
-            menu.draw(canvas)
+    private fun performDraw() {
+        val canvas = holder.lockHardwareCanvas()
+        canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR);
+        synchronized(menus) {
+            for (menu in menus) {
+                menu.draw(canvas)
+            }
         }
+        holder.unlockCanvasAndPost(canvas)
 
         /*
         canvas.apply {
@@ -151,41 +136,71 @@ class LauncherView(context: Context) : View(context), ValueAnimator.AnimatorUpda
          */
     }
 
-    override fun onTouchEvent(event: MotionEvent) = when (event.action) {
-        MotionEvent.ACTION_DOWN -> {
-            val newMenu = RadialMenu(
-                rawCenter = PointF(event.x, event.y),
-                pointerStartPosition = PointF(event.x, event.y),
-                viewBounds = viewBounds,
-                items = listOf(
-                    "com.bumble.app",
-                    "com.android.chrome",
-                    "com.google.android.apps.maps",
-                    "com.twitter.android",
-                    "com.instagram.android",
-                    "com.facebook.katana"
-                ).map { packageName ->
-                    RadialMenu.Item(getActivityIcon(packageName)!!)
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        synchronized(menus) {
+            for (menu in menus) {
+                menu.onTouchEvent(event)
+            }
+        }
+        return when (event.action) {
+            MotionEvent.ACTION_DOWN -> {
+                val newMenu = RadialMenu(
+                    rawCenter = PointF(event.x, event.y),
+                    pointerStartPosition = PointF(event.x, event.y),
+                    viewBounds = viewBounds,
+                    items = listOf(
+                        "com.bumble.app",
+                        "com.android.chrome",
+                        "com.google.android.apps.maps",
+                        "com.twitter.android",
+                        "com.instagram.android",
+                        "com.facebook.katana"
+                    ).map { packageName ->
+                        RadialMenu.Item(getActivityIcon(packageName)!!)
+                    }
+                )
+                synchronized(menus) {
+                    menus.add(newMenu)
                 }
-            )
-            menus.add(newMenu)
-            newMenu.setListener(object : RadialMenu.Listener {
-                override fun onUpdate() {
-                    invalidate()
+                newMenu.setListener(object : RadialMenu.Listener {
+                })
+                true
+            }
+            MotionEvent.ACTION_MOVE -> true
+            MotionEvent.ACTION_UP -> true
+            else -> super.onTouchEvent(event)
+        }
+    }
+
+    private var drawThread: Thread? = null
+    private val drawThreadRunning = AtomicBoolean(true)
+
+    override fun surfaceCreated(holder: SurfaceHolder) {
+        Log.d(TAG, "surfaceCreated")
+        drawThreadRunning.set(true)
+        drawThread = Thread {
+            while (drawThreadRunning.get()) {
+                performDraw()
+                try {
+                    Thread.sleep(16)
+                } catch (e: InterruptedException) {
                 }
-            })
-//            radiusAnimator.start()
-            true
+            }
         }
-        MotionEvent.ACTION_MOVE -> {
-            pointerPosition = PointF(event.x, event.y)
-            invalidate()
-            true
+        drawThread?.start()
+    }
+
+    override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
+        Log.d(TAG, "surfaceChanged")
+    }
+
+    override fun surfaceDestroyed(holder: SurfaceHolder) {
+        Log.d(TAG, "surfaceDestroyed")
+        drawThreadRunning.set(false)
+        drawThread?.let { t ->
+            t.interrupt()
+            t.join()
         }
-        MotionEvent.ACTION_UP -> {
-            radiusAnimator.cancel()
-            true
-        }
-        else -> super.onTouchEvent(event)
+        drawThread = null
     }
 }
