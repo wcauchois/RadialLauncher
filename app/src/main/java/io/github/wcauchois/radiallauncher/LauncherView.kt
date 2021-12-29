@@ -5,10 +5,12 @@ import android.animation.ValueAnimator
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.*
 import android.graphics.drawable.Drawable
 import android.util.Log
 import android.view.MotionEvent
+import android.view.SurfaceView
 import android.view.View
 import kotlin.math.cos
 import kotlin.math.sin
@@ -24,6 +26,11 @@ class LauncherView(context: Context) : View(context), ValueAnimator.AnimatorUpda
 
         val RADIUS_PROPERTY_NAME = "radius"
     }
+
+//    init {
+//        setZOrderOnTop(true)
+//        holder.setFormat(PixelFormat.TRANSPARENT)
+//    }
 
     private val radiusAnimator = ValueAnimator().apply {
         setValues(
@@ -41,36 +48,40 @@ class LauncherView(context: Context) : View(context), ValueAnimator.AnimatorUpda
         invalidate()
     }
 
-    private val backgroundCirclePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.WHITE
-        style = Paint.Style.FILL
-        alpha = 70
-    }
-
-    private val whitePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.WHITE
-    }
-
-    private var currentX = 0f
-    private var currentY = 0f
-    private var startX = 0f
-    private var startY = 0f
-
-    private fun getActivityIcon(packageName: String, activityName: String): Drawable? {
+    init {
         val pm = context.packageManager
-        val intent = Intent().apply {
-            component = ComponentName(packageName, activityName)
+        val packages = pm.getInstalledApplications(PackageManager.GET_META_DATA)
+        for (packageInfo in packages) {
+            Log.d(TAG, "--> Package name: ${packageInfo.packageName}")
         }
+    }
+
+    private fun getActivityIcon(packageName: String): Drawable? {
+        val pm = context.packageManager
+        val intent = pm.getLaunchIntentForPackage(packageName)!!
         val resolveInfo = pm.resolveActivity(intent, 0)
         return resolveInfo?.loadIcon(pm)
     }
 
     private fun getChromeIcon() =
-        getActivityIcon("com.android.chrome", "com.google.android.apps.chrome.Main")
+        getActivityIcon("com.android.chrome")
 
     private val chromeIcon = getChromeIcon()
 
+    private var pointerPosition = PointF()
+    private val menus = mutableListOf<RadialMenu>()
+    private var viewBounds = RectF()
+
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        viewBounds = RectF(0F, 0F, w.toFloat(), h.toFloat())
+    }
+
     override fun onDraw(canvas: Canvas) {
+        for (menu in menus) {
+            menu.draw(canvas)
+        }
+
+        /*
         canvas.apply {
             val centerX = startX//width / 2
             val centerY = startY//height / 2
@@ -137,18 +148,37 @@ class LauncherView(context: Context) : View(context), ValueAnimator.AnimatorUpda
             val circleY = centerY + deltaY
 //            drawCircle(circleX, circleY, 50f, whitePaint)
         }
+         */
     }
 
     override fun onTouchEvent(event: MotionEvent) = when (event.action) {
         MotionEvent.ACTION_DOWN -> {
-            startX = event.x
-            startY = event.y
-            radiusAnimator.start()
+            val newMenu = RadialMenu(
+                rawCenter = PointF(event.x, event.y),
+                pointerStartPosition = PointF(event.x, event.y),
+                viewBounds = viewBounds,
+                items = listOf(
+                    "com.bumble.app",
+                    "com.android.chrome",
+                    "com.google.android.apps.maps",
+                    "com.twitter.android",
+                    "com.instagram.android",
+                    "com.facebook.katana"
+                ).map { packageName ->
+                    RadialMenu.Item(getActivityIcon(packageName)!!)
+                }
+            )
+            menus.add(newMenu)
+            newMenu.setListener(object : RadialMenu.Listener {
+                override fun onUpdate() {
+                    invalidate()
+                }
+            })
+//            radiusAnimator.start()
             true
         }
         MotionEvent.ACTION_MOVE -> {
-            currentX = event.x
-            currentY = event.y
+            pointerPosition = PointF(event.x, event.y)
             invalidate()
             true
         }
