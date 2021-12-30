@@ -17,6 +17,7 @@ class LauncherView(context: Context, attrs: AttributeSet) : SurfaceView(context,
     }
 
     init {
+        // Make SurfaceView transparent so we can show the wallpaper in the BG
         setZOrderOnTop(true)
         holder.setFormat(PixelFormat.TRANSPARENT)
         holder.addCallback(this)
