@@ -1,29 +1,17 @@
 package io.github.wcauchois.radiallauncher
 
-import android.animation.PropertyValuesHolder
-import android.animation.ValueAnimator
-import android.content.ComponentName
 import android.content.Context
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.*
 import android.graphics.drawable.Drawable
+import android.util.AttributeSet
 import android.util.Log
 import android.view.MotionEvent
 import android.view.SurfaceHolder
 import android.view.SurfaceView
-import android.view.View
-import java.util.*
 import java.util.concurrent.atomic.AtomicBoolean
-import kotlin.math.cos
-import kotlin.math.sin
 
-abstract class LauncherViewState(val view: LauncherView) {
-    open fun enter() {}
-    open fun exit() {}
-}
-
-class LauncherView(context: Context) : SurfaceView(context), SurfaceHolder.Callback {
+class LauncherView(context: Context, attrs: AttributeSet) : SurfaceView(context, attrs), SurfaceHolder.Callback {
     companion object {
         val TAG = "LauncherView"
     }
