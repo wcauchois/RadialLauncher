@@ -47,82 +47,17 @@ class LauncherView(context: Context, attrs: AttributeSet) : SurfaceView(context,
 
     private fun performDraw() {
         val canvas = holder.lockHardwareCanvas()
-        canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR);
-        synchronized(menus) {
-            for (menu in menus) {
-                menu.draw(canvas)
-            }
-        }
-        holder.unlockCanvasAndPost(canvas)
-
-        /*
-        canvas.apply {
-            val centerX = startX//width / 2
-            val centerY = startY//height / 2
-
-            canvas.save()
-            canvas.translate(centerX, centerY)
-            val currentRadius = radiusAnimator.getAnimatedValue(RADIUS_PROPERTY_NAME) as Float
-            val numIcons = 6
-            val iconSize = 150f
-            val deltaX = (currentX - startX)
-            val deltaY = (currentY - startY)
-
-            var userAngle = Math.atan2(deltaY.toDouble(), deltaX.toDouble())
-            if (userAngle < 0) {
-                userAngle += Math.PI * 2
-            }
-//            Log.d(TAG, "User angle is: ${userAngle}")
-
-//            Log.d("---")
-            for (i in 0 until numIcons) {
-                val angle = (i / numIcons.toFloat()) * Math.PI * 2
-                val destX = cos(angle) * currentRadius
-                val destY = sin(angle) * currentRadius
-                val ovalSize = 800f
-
-                var startMatchAngle = angle - Math.PI * 2 / numIcons / 2
-                if (startMatchAngle < 0) startMatchAngle += Math.PI * 2
-                var endMatchAngle = angle + Math.PI * 2 / numIcons / 2
-                if (endMatchAngle < 0) endMatchAngle += Math.PI * 2
-                val sliceIsActive = userAngle >= startMatchAngle && userAngle < endMatchAngle
-
-                canvas.save()
-                val clipPath = Path().apply {
-                    addCircle(0f, 0f, 150f, Path.Direction.CW)
-                    for (j in 0 until numIcons) {
-                        val p2 = Path()
-                        p2.addRect(0f, -10f, 900f, 10f, Path.Direction.CW)
-                        val m = Matrix()
-                        m.setRotate(j / numIcons.toFloat() * 360f - 360f / numIcons / 2)
-                        addPath(p2, m)
-                    }
-                }
-                canvas.clipOutPath(clipPath)
-                drawArc(
-                    ovalSize / -2f, ovalSize / -2f, ovalSize / 2f, ovalSize / 2f,
-                    (i / numIcons.toFloat()) * 360f - 360f / numIcons / 2,
-                    360f / numIcons,
-                    true,
-                    if (sliceIsActive) whitePaint else backgroundCirclePaint
-                )
-                canvas.restore()
-//                drawCircle(destX.toFloat(), destY.toFloat(), iconSize / 2 + 25f, backgroundCirclePaint)
-                chromeIcon?.let { ci ->
-                    ci.setBounds(
-                        (destX - iconSize / 2).toInt(), (destY - iconSize / 2).toInt(),
-                        (destX + iconSize / 2).toInt(), (destY + iconSize / 2).toInt()
-                    )
-                    ci.draw(canvas)
+        if (canvas != null) {
+            canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR);
+            synchronized(menus) {
+                for (menu in menus) {
+                    menu.draw(canvas)
                 }
             }
-            canvas.restore()
-
-            val circleX = centerX + deltaX
-            val circleY = centerY + deltaY
-//            drawCircle(circleX, circleY, 50f, whitePaint)
+            holder.unlockCanvasAndPost(canvas)
+        } else {
+            Log.w(TAG, "Canvas was null")
         }
-         */
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
@@ -133,6 +68,7 @@ class LauncherView(context: Context, attrs: AttributeSet) : SurfaceView(context,
         }
         return when (event.action) {
             MotionEvent.ACTION_DOWN -> {
+                Log.d(TAG, "TouchEvent: ACTION_DOWN")
                 val pm = context.packageManager
                 val newMenu = RadialMenu(
                     rawCenter = PointF(event.x, event.y),

@@ -17,6 +17,8 @@ class MainActivity : AppCompatActivity() {
 
         setContentView(R.layout.activity_main)
 
+        val mainFrameLayout = findViewById<FrameLayout>(R.id.main_frame_layout)
+
         val settingsButton = findViewById<ImageButton>(R.id.settings_button)
         val pm = packageManager
         val intent = pm.getLaunchIntentForPackage("com.android.settings")
