@@ -11,7 +11,8 @@ import android.view.SurfaceHolder
 import android.view.SurfaceView
 import java.util.concurrent.atomic.AtomicBoolean
 
-class LauncherView(context: Context, attrs: AttributeSet) : SurfaceView(context, attrs), SurfaceHolder.Callback {
+class LauncherView(context: Context, attrs: AttributeSet) : SurfaceView(context, attrs),
+    SurfaceHolder.Callback {
     companion object {
         val TAG = "LauncherView"
     }
@@ -40,6 +41,7 @@ class LauncherView(context: Context, attrs: AttributeSet) : SurfaceView(context,
 
     private val menus = mutableListOf<RadialMenu>()
     private var viewBounds = RectF()
+    private var currentPointerPosition = PointF()
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         viewBounds = RectF(0F, 0F, w.toFloat(), h.toFloat())
@@ -60,6 +62,79 @@ class LauncherView(context: Context, attrs: AttributeSet) : SurfaceView(context,
         }
     }
 
+    private fun addNewMenu(items: List<RadialMenu.Item>) {
+        val position = currentPointerPosition
+        val newMenu = RadialMenu(
+            rawCenter = position,
+            pointerStartPosition = position,
+            viewBounds = viewBounds,
+            items = items
+        )
+        synchronized(menus) {
+            menus.add(newMenu)
+        }
+        newMenu.setListener(object : RadialMenu.Listener {
+            override fun onRemove() {
+                synchronized(menus) {
+                    menus.remove(newMenu)
+                }
+            }
+        })
+    }
+
+    private fun menuItemForPackageName(packageName: String): RadialMenu.Item? {
+        val pm = context.packageManager
+        val intent = pm.getLaunchIntentForPackage(packageName)
+        val resolveInfo = intent?.let { pm.resolveActivity(it, 0) }
+        val icon = resolveInfo?.loadIcon(pm)
+        return icon?.let {
+            RadialMenu.Item(
+                drawable = icon,
+                trigger = RadialMenu.SelectionTrigger.POINTER_UP,
+                onSelected = {
+                    intent?.let {
+                        context.startActivity(it)
+                    }
+                }
+            )
+        }?.also {
+            if (it == null) {
+                Log.w(TAG, "Could not create menu item for package: ${packageName}")
+            }
+        }
+    }
+
+    private fun addMessagingMenu() {
+        addNewMenu(
+            listOfNotNull(
+                menuItemForPackageName("org.telegram.messenger"),
+                menuItemForPackageName("com.facebook.orca"),
+                menuItemForPackageName("com.google.android.apps.messaging"),
+                menuItemForPackageName("com.google.android.gm"),
+            )
+        )
+    }
+
+    private fun addDefaultMenu() {
+        val messagingIconDrawable = context.getDrawable(R.drawable.messaging_icon)
+        addNewMenu(listOfNotNull(
+            menuItemForPackageName("com.android.chrome"),
+            menuItemForPackageName("com.instagram.android"),
+            menuItemForPackageName("com.google.android.googlequicksearchbox"),
+            menuItemForPackageName("com.google.android.apps.photos"),
+            menuItemForPackageName("com.google.android.calendar"),
+            messagingIconDrawable?.let {
+                RadialMenu.Item(
+                    drawable = it,
+                    trigger = RadialMenu.SelectionTrigger.HOVER,
+                    onSelected = {
+                        addMessagingMenu()
+                    }
+                )
+            }
+        ))
+    }
+
     override fun onTouchEvent(event: MotionEvent): Boolean {
         synchronized(menus) {
             for (menu in menus) {
@@ -69,48 +144,14 @@ class LauncherView(context: Context, attrs: AttributeSet) : SurfaceView(context,
         return when (event.action) {
             MotionEvent.ACTION_DOWN -> {
                 Log.d(TAG, "TouchEvent: ACTION_DOWN")
-                val pm = context.packageManager
-                val newMenu = RadialMenu(
-                    rawCenter = PointF(event.x, event.y),
-                    pointerStartPosition = PointF(event.x, event.y),
-                    viewBounds = viewBounds,
-                    items = listOf(
-                        "com.bumble.app",
-                        "com.android.chrome",
-                        "com.google.android.apps.maps",
-                        "com.twitter.android",
-                        "com.instagram.android",
-                        "com.facebook.katana"
-                    ).withIndex().map { (index, packageName) ->
-                        val intent = pm.getLaunchIntentForPackage(packageName)!!
-                        val resolveInfo = pm.resolveActivity(intent, 0)
-                        val icon = resolveInfo?.loadIcon(pm)!!
-                        RadialMenu.Item(
-                            drawable = icon,
-                            trigger = if (index == 0) {
-                                RadialMenu.SelectionTrigger.HOVER
-                            } else {
-                                RadialMenu.SelectionTrigger.POINTER_UP
-                            },
-                            onSelected = {
-                                context.startActivity(intent)
-                            }
-                        )
-                    }
-                )
-                synchronized(menus) {
-                    menus.add(newMenu)
-                }
-                newMenu.setListener(object : RadialMenu.Listener {
-                    override fun onRemove() {
-                        synchronized(menus) {
-                            menus.remove(newMenu)
-                        }
-                    }
-                })
+                currentPointerPosition = PointF(event.x, event.y)
+                addDefaultMenu()
                 true
             }
-            MotionEvent.ACTION_MOVE -> true
+            MotionEvent.ACTION_MOVE -> {
+                currentPointerPosition = PointF(event.x, event.y)
+                true
+            }
             MotionEvent.ACTION_UP -> true
             else -> super.onTouchEvent(event)
         }
