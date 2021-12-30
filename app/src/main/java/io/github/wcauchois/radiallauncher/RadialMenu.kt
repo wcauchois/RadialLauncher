@@ -1,5 +1,7 @@
 package io.github.wcauchois.radiallauncher
 
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
 import android.animation.PropertyValuesHolder
 import android.animation.ValueAnimator
 import android.graphics.*
@@ -23,9 +25,11 @@ class RadialMenu(
         val MENU_TOTAL_RADIUS = 400F
         val PIE_SEPARATOR_HEIGHT = 20F
         val DEADZONE_RADIUS = 150F
+        val ICON_START_ALPHA = 0.5F
 
         private val ICON_RADIUS_PROPERTY_NAME = "icon_radius"
         private val ICON_ALPHA_PROPERTY_NAME = "icon_alpha"
+        private val HOVER_ON_PROPERTY_NAME = "hover_on"
     }
 
     val center = run {
@@ -48,7 +52,7 @@ class RadialMenu(
             ),
             PropertyValuesHolder.ofFloat(
                 ICON_ALPHA_PROPERTY_NAME,
-                0.5F,
+                ICON_START_ALPHA,
                 1.0F
             )
         )
@@ -56,11 +60,54 @@ class RadialMenu(
         start()
     }
 
+    private val hoverAnimator = ValueAnimator()?.apply {
+        setValues(
+            PropertyValuesHolder.ofInt(
+                HOVER_ON_PROPERTY_NAME,
+                1,
+                0,
+                1,
+                0
+            )
+        )
+        duration = 500
+    }
+
     private var listener: Listener? = null
     private var pointerDelta: PointF = PointF()
+    private var cancelled = false
+
+    fun cancel() {
+        if (cancelled) {
+            return
+        }
+        cancelled = true
+
+        val currentRadius = iconAnimator.getAnimatedValue(ICON_RADIUS_PROPERTY_NAME) as Float
+        val currentAlpha = iconAnimator.getAnimatedValue(ICON_ALPHA_PROPERTY_NAME) as Float
+        iconAnimator.cancel()
+        iconAnimator.setValues(
+            PropertyValuesHolder.ofFloat(
+                ICON_RADIUS_PROPERTY_NAME,
+                currentRadius,
+                0F
+            ),
+            PropertyValuesHolder.ofFloat(
+                ICON_ALPHA_PROPERTY_NAME,
+                currentAlpha,
+                0F
+            )
+        )
+        iconAnimator.start()
+        iconAnimator.addListener(object : AnimatorListenerAdapter() {
+            override fun onAnimationEnd(animator: Animator?) {
+                animator?.removeAllListeners()
+                listener?.onRemove()
+            }
+        })
+    }
 
     interface Listener {
-        fun onSelect(index: Int) {}
         fun onRemove() {}
     }
 
@@ -75,7 +122,8 @@ class RadialMenu(
 
     data class Item(
         val drawable: Drawable,
-        val trigger: SelectionTrigger = SelectionTrigger.POINTER_UP
+        val trigger: SelectionTrigger = SelectionTrigger.POINTER_UP,
+        val onSelected: (() -> Unit)? = null
     )
 
     private val transparentWhitePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -110,9 +158,10 @@ class RadialMenu(
         canvas.clipOutPath(clipPath)
 
         val activeIndex = this.activeIndex
+        val hoverValue = hoverAnimator.getAnimatedValue(HOVER_ON_PROPERTY_NAME)
         for (i in 0 until numItems) {
             val halfRadius = MENU_TOTAL_RADIUS
-            val active = activeIndex == i
+            val active = activeIndex == i && (!hoverAnimator.isRunning || hoverValue != 0)
             canvas.drawArc(
                 -halfRadius, -halfRadius, halfRadius, halfRadius,
                 (i / numItems.toFloat()) * 360F - 360F / numItems / 2,
@@ -149,7 +198,7 @@ class RadialMenu(
                 pointerDelta.x * pointerDelta.x +
                         pointerDelta.y * pointerDelta.y
             )
-            if (distanceFromCenter < DEADZONE_RADIUS) {
+            if (distanceFromCenter < DEADZONE_RADIUS || distanceFromCenter > MENU_TOTAL_RADIUS) {
                 return null
             }
             var userAngle = atan2(pointerDelta.y.toDouble(), pointerDelta.x.toDouble())
@@ -171,11 +220,15 @@ class RadialMenu(
         canvas.translate(this.center.x, this.center.y)
 
 
-        drawPieSlices(canvas)
+        if (!cancelled) {
+            drawPieSlices(canvas)
+        }
         drawIcons(canvas)
 
         canvas.restore()
     }
+
+    private var hoveringIndex: Int? = null
 
     fun onTouchEvent(event: MotionEvent) {
         if (event.action == MotionEvent.ACTION_MOVE) {
@@ -183,6 +236,52 @@ class RadialMenu(
                 event.x - pointerStartPosition.x,
                 event.y - pointerStartPosition.y
             )
+
+            val index = activeIndex
+            if (hoveringIndex != null) {
+                if (index != hoveringIndex) {
+                    hoverAnimator.cancel()
+                    hoverAnimator.removeAllListeners()
+                    hoveringIndex = null
+                }
+            } else {
+                if (index != null) {
+                    val item = items[index]
+                    if (item.trigger == SelectionTrigger.HOVER) {
+                        hoveringIndex = index
+                        hoverAnimator.start()
+                        hoverAnimator.addListener(object : AnimatorListenerAdapter() {
+                            private var animationCancelled = false
+
+                            override fun onAnimationCancel(animator: Animator?) {
+                                animationCancelled = true
+                            }
+
+                            override fun onAnimationEnd(animator: Animator?) {
+                                animator?.removeAllListeners()
+                                if (!animationCancelled) {
+                                    item.onSelected?.invoke()
+                                    this@RadialMenu.cancel()
+                                }
+                            }
+                        })
+                    }
+                }
+            }
+        } else if (event.action == MotionEvent.ACTION_UP) {
+            if (!cancelled) {
+                cancel()
+                if (hoverAnimator.isRunning) {
+                    hoverAnimator.cancel()
+                }
+                val index = activeIndex
+                if (index != null) {
+                    val item = this.items[index]
+                    if (item.trigger == SelectionTrigger.POINTER_UP) {
+                        item.onSelected?.invoke()
+                    }
+                }
+            }
         }
     }
 }

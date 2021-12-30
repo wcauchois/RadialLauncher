@@ -144,6 +144,7 @@ class LauncherView(context: Context) : SurfaceView(context), SurfaceHolder.Callb
         }
         return when (event.action) {
             MotionEvent.ACTION_DOWN -> {
+                val pm = context.packageManager
                 val newMenu = RadialMenu(
                     rawCenter = PointF(event.x, event.y),
                     pointerStartPosition = PointF(event.x, event.y),
@@ -155,14 +156,32 @@ class LauncherView(context: Context) : SurfaceView(context), SurfaceHolder.Callb
                         "com.twitter.android",
                         "com.instagram.android",
                         "com.facebook.katana"
-                    ).map { packageName ->
-                        RadialMenu.Item(getActivityIcon(packageName)!!)
+                    ).withIndex().map { (index, packageName) ->
+                        val intent = pm.getLaunchIntentForPackage(packageName)!!
+                        val resolveInfo = pm.resolveActivity(intent, 0)
+                        val icon = resolveInfo?.loadIcon(pm)!!
+                        RadialMenu.Item(
+                            drawable = icon,
+                            trigger = if (index == 0) {
+                                RadialMenu.SelectionTrigger.HOVER
+                            } else {
+                                RadialMenu.SelectionTrigger.POINTER_UP
+                            },
+                            onSelected = {
+                                context.startActivity(intent)
+                            }
+                        )
                     }
                 )
                 synchronized(menus) {
                     menus.add(newMenu)
                 }
                 newMenu.setListener(object : RadialMenu.Listener {
+                    override fun onRemove() {
+                        synchronized(menus) {
+                            menus.remove(newMenu)
+                        }
+                    }
                 })
                 true
             }
