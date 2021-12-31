@@ -115,11 +115,21 @@ class LauncherView(context: Context, attrs: AttributeSet) : SurfaceView(context,
         )
     }
 
+    private fun addEntertainmentMenu() {
+        addNewMenu(
+            listOfNotNull(
+                menuItemForPackageName("com.instagram.android"),
+                menuItemForPackageName("com.andrewshu.android.reddit"),
+                menuItemForPackageName("com.zhiliaoapp.musically"),
+            )
+        )
+    }
+
     private fun addDefaultMenu() {
         val messagingIconDrawable = context.getDrawable(R.drawable.messaging_icon)
+        val entertainmentIconDrawable = context.getDrawable(R.drawable.entertainment_icon)
         addNewMenu(listOfNotNull(
             menuItemForPackageName("com.android.chrome"),
-            menuItemForPackageName("com.instagram.android"),
             menuItemForPackageName("com.google.android.googlequicksearchbox"),
             menuItemForPackageName("com.google.android.apps.photos"),
             menuItemForPackageName("com.google.android.calendar"),
@@ -129,6 +139,15 @@ class LauncherView(context: Context, attrs: AttributeSet) : SurfaceView(context,
                     trigger = RadialMenu.SelectionTrigger.HOVER,
                     onSelected = {
                         addMessagingMenu()
+                    }
+                )
+            },
+            entertainmentIconDrawable?.let {
+                RadialMenu.Item(
+                    drawable = it,
+                    trigger = RadialMenu.SelectionTrigger.HOVER,
+                    onSelected = {
+                        addEntertainmentMenu()
                     }
                 )
             }

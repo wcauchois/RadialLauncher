@@ -4,6 +4,13 @@ plugins {
 }
 
 android {
+    signingConfigs {
+        garbage_key {
+            storeFile file('/Users/wcauchois/.android/debug.keystore')
+            storePassword 'android'
+            keyPassword 'android'
+        }
+    }
     compileSdk 32
 
     defaultConfig {
@@ -20,6 +27,7 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.debug
         }
     }
     compileOptions {

@@ -126,15 +126,6 @@ class RadialMenu(
         val onSelected: (() -> Unit)? = null
     )
 
-    private val transparentWhitePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.WHITE
-        alpha = 70
-    }
-
-    private val whitePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.WHITE
-    }
-
     private fun drawPieSlices(canvas: Canvas) {
         canvas.save()
 
@@ -162,12 +153,21 @@ class RadialMenu(
         for (i in 0 until numItems) {
             val halfRadius = MENU_TOTAL_RADIUS
             val active = activeIndex == i && (!hoverAnimator.isRunning || hoverValue != 0)
+            val color = when (items[i].trigger) {
+                SelectionTrigger.POINTER_UP -> Color.WHITE
+                SelectionTrigger.HOVER -> Color.rgb(245, 176, 66)
+            }
+            val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+            paint.color = color
+            if (!active) {
+                paint.alpha = 120
+            }
             canvas.drawArc(
                 -halfRadius, -halfRadius, halfRadius, halfRadius,
                 (i / numItems.toFloat()) * 360F - 360F / numItems / 2,
                 360F / numItems,
                 true,
-                if (active) whitePaint else transparentWhitePaint
+                paint
             )
         }
 
