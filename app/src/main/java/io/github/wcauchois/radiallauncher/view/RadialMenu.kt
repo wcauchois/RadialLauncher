@@ -1,4 +1,4 @@
-package io.github.wcauchois.radiallauncher
+package io.github.wcauchois.radiallauncher.view
 
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
@@ -6,7 +6,6 @@ import android.animation.PropertyValuesHolder
 import android.animation.ValueAnimator
 import android.graphics.*
 import android.graphics.drawable.Drawable
-import android.util.Log
 import android.view.MotionEvent
 import kotlin.math.*
 
@@ -14,7 +13,7 @@ class RadialMenu(
     rawCenter: PointF,
     val pointerStartPosition: PointF,
     val viewBounds: RectF,
-    val items: List<RadialMenu.Item>
+    val items: List<Item>
 ) {
     companion object {
         val TAG = "RadialMenu"

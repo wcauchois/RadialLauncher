@@ -1,4 +1,4 @@
-package io.github.wcauchois.radiallauncher
+package io.github.wcauchois.radiallauncher.view
 
 import android.content.Context
 import android.content.pm.PackageManager
@@ -9,6 +9,7 @@ import android.util.Log
 import android.view.MotionEvent
 import android.view.SurfaceHolder
 import android.view.SurfaceView
+import io.github.wcauchois.radiallauncher.R
 import java.util.concurrent.atomic.AtomicBoolean
 
 class LauncherView(context: Context, attrs: AttributeSet) : SurfaceView(context, attrs),
@@ -32,16 +33,15 @@ class LauncherView(context: Context, attrs: AttributeSet) : SurfaceView(context,
         }
     }
 
-    private fun getActivityIcon(packageName: String): Drawable? {
-        val pm = context.packageManager
-        val intent = pm.getLaunchIntentForPackage(packageName)!!
-        val resolveInfo = pm.resolveActivity(intent, 0)
-        return resolveInfo?.loadIcon(pm)
-    }
-
     private val menus = mutableListOf<RadialMenu>()
     private var viewBounds = RectF()
     private var currentPointerPosition = PointF()
+
+    private var allAppsClickedListener: (() -> Unit)? = null
+
+    fun setAllAppsClickedListener(listener: (() -> Unit)?) {
+        allAppsClickedListener = listener
+    }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         viewBounds = RectF(0F, 0F, w.toFloat(), h.toFloat())
@@ -128,9 +128,10 @@ class LauncherView(context: Context, attrs: AttributeSet) : SurfaceView(context,
     private fun addDefaultMenu() {
         val messagingIconDrawable = context.getDrawable(R.drawable.messaging_icon)
         val entertainmentIconDrawable = context.getDrawable(R.drawable.entertainment_icon)
+        val allAppsIconDrawable = context.getDrawable(R.drawable.ic_all_apps)
         addNewMenu(listOfNotNull(
             menuItemForPackageName("com.android.chrome"),
-            menuItemForPackageName("com.google.android.googlequicksearchbox"),
+//            menuItemForPackageName("com.google.android.googlequicksearchbox"),
             menuItemForPackageName("com.google.android.apps.photos"),
             menuItemForPackageName("com.google.android.calendar"),
             messagingIconDrawable?.let {
@@ -148,6 +149,15 @@ class LauncherView(context: Context, attrs: AttributeSet) : SurfaceView(context,
                     trigger = RadialMenu.SelectionTrigger.HOVER,
                     onSelected = {
                         addEntertainmentMenu()
+                    }
+                )
+            },
+            allAppsIconDrawable?.let {
+                RadialMenu.Item(
+                    drawable = it,
+                    trigger = RadialMenu.SelectionTrigger.POINTER_UP,
+                    onSelected = {
+                        allAppsClickedListener?.invoke()
                     }
                 )
             }
