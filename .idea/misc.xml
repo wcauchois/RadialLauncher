@@ -6,6 +6,8 @@
         <entry key="../../../../layout/custom_preview.xml" value="0.22239583333333332" />
         <entry key="app/src/main/res/drawable/ic_all_apps.xml" value="0.1640625" />
         <entry key="app/src/main/res/layout/activity_main.xml" value="0.25" />
+        <entry key="app/src/main/res/layout/app_drawer_item.xml" value="0.14791666666666667" />
+        <entry key="app/src/main/res/layout/fragment_app_drawer.xml" value="0.14791666666666667" />
         <entry key="app/src/main/res/layout/fragment_blank.xml" value="0.335" />
         <entry key="app/src/main/res/layout/fragment_test.xml" value="0.14791666666666667" />
       </map>

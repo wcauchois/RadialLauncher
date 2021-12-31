@@ -1,16 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:background="#f1f1f3"
     android:layout_height="match_parent"
+    android:background="#f1f1f3"
     tools:context=".fragment.LauncherFragment">
 
-    <TextView
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/app_drawer_recycler_view"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:text="APP DRAWER"
-        android:textSize="48sp"
-        android:textStyle="bold" />
+        android:orientation="vertical"
+        android:scrollbars="vertical"
+        app:layoutManager="androidx.recyclerview.widget.GridLayoutManager"
+        app:spanCount="5" />
 
 </FrameLayout>
