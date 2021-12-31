@@ -73,7 +73,7 @@ class RadialMenu(
     }
 
     private var listener: Listener? = null
-    private var pointerDelta: PointF = PointF()
+    private var pointerPosition = pointerStartPosition
     private var cancelled = false
 
     fun cancel() {
@@ -193,14 +193,13 @@ class RadialMenu(
 
     private val activeIndex: Int?
         get() {
-            val distanceFromCenter = if (pointerDelta.x == 0F && pointerDelta.y == 0F) 0F else sqrt(
-                pointerDelta.x * pointerDelta.x +
-                        pointerDelta.y * pointerDelta.y
-            )
+            val dx = pointerPosition.x - center.x
+            val dy = pointerPosition.y - center.y
+            val distanceFromCenter = if (dx == 0F && dy == 0F) 0F else sqrt(dx * dx + dy * dy)
             if (distanceFromCenter < DEADZONE_RADIUS || distanceFromCenter > MENU_TOTAL_RADIUS) {
                 return null
             }
-            var userAngle = atan2(pointerDelta.y.toDouble(), pointerDelta.x.toDouble())
+            var userAngle = atan2(dy.toDouble(), dx.toDouble())
             val numItems = items.size
             val sliceWidthRadians = Math.PI * 2 / numItems
             if (userAngle < 0) {
@@ -231,10 +230,7 @@ class RadialMenu(
 
     fun onTouchEvent(event: MotionEvent) {
         if (event.action == MotionEvent.ACTION_MOVE) {
-            pointerDelta = PointF(
-                event.x - pointerStartPosition.x,
-                event.y - pointerStartPosition.y
-            )
+            pointerPosition = PointF(event.x, event.y)
 
             val index = activeIndex
             if (hoveringIndex != null) {
